@@ -9,8 +9,60 @@
     <script src="js/list4.js"></script>
     <script src="js/list5.js"></script>
     <script src="js/list6.js"></script>
+    <script src="js/list7.js"></script>
+    <script src="js/list8.js"></script>
+    <script src="js/list9.js"></script>
+    <script src="js/list10.js"></script>
+    <script src="js/list11.js"></script>
+    <script src="js/list12.js"></script>
 </head>
 <body>
 
+<input type="text" id="query" name="query" />
+
+<script>
+    var inputStream =
+            Rx.Observable.fromEvent($('#query'), 'input')
+                    .map(function (e) {
+                        return e.target.value;
+                    });
+
+    inputStream.subscribe(function(e){console.log("bbbbb" + e);});
+
+    var queryStream = inputStream
+            .throttle(300)
+            .filter(function(text){return text.length > 0;})
+            .distinctUntilChanged()
+            .map(function(text){
+                console.log("text:" + text);
+                return 'https://api.github.com/search/repositories?&q=' + text;
+            });
+
+    var executingStream = new Rx.Subject();
+
+    var repositoriesStream = queryStream
+            .flatMap(function(query){
+                executingStream.onNext(true);
+                return Rx.Observable.fromPromise($.ajax({url:query}))
+                        .finally(function(){executingStream.onNext(false)});
+            })
+            .map(function(res){
+                return res.items;
+            });
+
+    executingStream.subscribe(function(executing){
+        if(executingStream){
+            $('#result').prepend('loading...');
+        }
+    });
+
+    repositoriesStream.map(function(items){
+        return items.map(function(repo){
+            return repo.html_url + ":" + repo.description;
+        })
+    }).subscribe(function(desc){
+        console.log(desc);
+    });
+</script>
 </body>
 </html>
